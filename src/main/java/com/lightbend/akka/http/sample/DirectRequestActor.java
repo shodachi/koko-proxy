@@ -5,19 +5,17 @@ import akka.actor.Props;
 import akka.http.javadsl.Http;
 import akka.http.javadsl.model.HttpRequest;
 import akka.http.javadsl.model.HttpResponse;
-import akka.stream.ActorMaterializer;
-import akka.stream.Materializer;
 import scala.concurrent.ExecutionContextExecutor;
 
 import java.util.concurrent.CompletionStage;
 import static akka.pattern.PatternsCS.pipe;
 
-public class DirectContentRequestActor extends AbstractActor{
+public class DirectRequestActor extends AbstractActor{
 
     final Http http = Http.get(context().system());
     final ExecutionContextExecutor dispatcher = context().dispatcher();
     static Props props() {
-        return Props.create(DirectContentRequestActor.class);
+        return Props.create(DirectRequestActor.class);
     }
 
     @Override
