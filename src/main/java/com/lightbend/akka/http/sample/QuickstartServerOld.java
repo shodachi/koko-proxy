@@ -13,12 +13,12 @@ import akka.stream.ActorMaterializer;
 import akka.stream.javadsl.Flow;
 
 //#main-class
-public class QuickstartServer extends AllDirectives {
+public class QuickstartServerOld extends AllDirectives {
 
     // set up ActorSystem and other dependencies here
     private final UserRoutes userRoutes;
 
-    public QuickstartServer(ActorSystem system, ActorRef userRegistryActor) {
+    public QuickstartServerOld(ActorSystem system, ActorRef userRegistryActor) {
         userRoutes = new UserRoutes(system, userRegistryActor);
     }
     //#main-class
@@ -36,12 +36,12 @@ public class QuickstartServer extends AllDirectives {
 
         //#http-server
         //In order to access all directives we need an instance where the routes are define.
-        QuickstartServer app = new QuickstartServer(system, userRegistryActor);
+        QuickstartServerOld app = new QuickstartServerOld(system, userRegistryActor);
 
         final Flow<HttpRequest, HttpResponse, NotUsed> routeFlow = app.createRoute().flow(system, materializer);
-        http.bindAndHandle(routeFlow, ConnectHttp.toHost("localhost", 8080), materializer);
+        http.bindAndHandle(routeFlow, ConnectHttp.toHost("localhost", 3128), materializer);
 
-        System.out.println("Server online at http://localhost:8080/");
+        System.out.println("Server online at http://localhost:3128/");
         //#http-server
     }
 
