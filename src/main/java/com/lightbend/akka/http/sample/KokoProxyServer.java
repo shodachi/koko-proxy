@@ -54,7 +54,11 @@ public class KokoProxyServer extends AllDirectives {
                             thenApply(obj -> (HttpResponse) obj);
                     return onSuccess(() -> futureHttpResponse, httpResponse ->
                             {
-                                createCache(requestCacheActor, request, httpResponse);
+                                //TODO the httpResponse.entity is a stream so the second time it gets called (by either create cache or complete) it crashes
+                                //Need to find a way to avoid this.. maybe toStrict might fix it ..
+                                // or always return the cache after it was created..but I wanted to avoid to wait for the cache to be created to send the response..
+                                //createCache(requestCacheActor, request, httpResponse);
+                                //return complete("Dummy response");
                                 return complete(httpResponse.entity());
                             }
                     );
