@@ -48,11 +48,10 @@ public class KokoProxyServer extends AllDirectives {
     }
 
     private Route createRoute(ActorRef directContentRequestActor, ActorRef requestCacheActor, ActorMaterializer materializer, ActorSystem system) {
-
         LoggingAdapter log = Logging.getLogger(system, this);
 
         final Route extractRequest = extractRequest(request -> {
-                    log.info("Trying to access " + request.getUri());
+                    log.info("Trying to access: " + request.getUri());
 
                     CompletionStage<Optional<HttpResponse>> futureCacheHttpResponse = PatternsCS.ask(requestCacheActor, new ProxyMessages.ReadCache(request.getUri()), timeout).
                             thenApply(
@@ -62,17 +61,16 @@ public class KokoProxyServer extends AllDirectives {
                     return onSuccess(() -> futureCacheHttpResponse, httpResponse ->
                             {
                                 if (httpResponse.isPresent()) {
-                                    log.info("Got cache for you!!");
+                                    log.info("Cache hit: " + request.getUri());
                                     HttpResponse responseCached = httpResponse.get();
 
-                                    final HttpResponse res = HttpResponse.create().
-                                            withEntity(responseCached.entity()).
-                                            withStatus(responseCached.status()).
-                                            withHeaders(responseCached.getHeaders()).
-                                            addHeader(HttpHeader.parse("X-Cache", "HIT"));
+                                    final HttpResponse res =
+                                            copyHttpResponseLessXCache(responseCached).
+                                                    addHeader(HttpHeader.parse("X-Cache", "HIT"));
 
                                     return complete(res);
                                 } else {
+                                    log.info("Cache miss: " + request.getUri());
                                     return routeWhenCacheMiss(request, directContentRequestActor, requestCacheActor, materializer, system);
                                 }
                             }
@@ -94,23 +92,21 @@ public class KokoProxyServer extends AllDirectives {
                             .toStrict(FiniteDuration.create(3, TimeUnit.SECONDS).toMillis(), materializer);
 
                     try {
+                        //FIXME: We could probably avoid the wait here and return a future in the complete(Response).
                         ByteString content = strictEntity.toCompletableFuture().get().getData();
                         ContentType contentType = strictEntity.toCompletableFuture().get().getContentType();
 
-                        final HttpResponse resposeToCache = HttpResponse.create().
+                        final HttpResponse responseToCache = HttpResponse.create().
                                 withEntity(contentType, content).
                                 withStatus(httpResponse.status()).
                                 withHeaders(httpResponse.getHeaders()).
                                 removeHeader("X-Cache");
 
-                        createCache(requestCacheActor, request, resposeToCache);
+                        createCache(requestCacheActor, request, responseToCache);
 
-                        final HttpResponse newResponse = HttpResponse.create().
-                                withEntity(contentType, content).
-                                withStatus(httpResponse.status()).
-                                withHeaders(httpResponse.getHeaders()).
-                                removeHeader("X-Cache").
-                                addHeader(HttpHeader.parse("X-Cache", "MISS"));
+                        final HttpResponse newResponse =
+                                copyHttpResponseLessXCache(httpResponse).
+                                        addHeader(HttpHeader.parse("X-Cache", "MISS"));
 
                         return complete(newResponse);
                     } catch (InterruptedException | ExecutionException e) {
@@ -120,6 +116,14 @@ public class KokoProxyServer extends AllDirectives {
                     return complete(StatusCodes.INTERNAL_SERVER_ERROR);
                 }
         );
+    }
+
+    public HttpResponse copyHttpResponseLessXCache(HttpResponse originalResponse) {
+        return HttpResponse.create().
+                withEntity(originalResponse.entity()).
+                withStatus(originalResponse.status()).
+                withHeaders(originalResponse.getHeaders()).
+                removeHeader("X-Cache");
     }
 
     private void createCache(ActorRef requestCacheActor, HttpRequest request, HttpResponse response) {
