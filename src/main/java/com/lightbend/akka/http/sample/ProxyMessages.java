@@ -2,6 +2,7 @@ package com.lightbend.akka.http.sample;
 
 import akka.http.javadsl.model.HttpRequest;
 import akka.http.javadsl.model.HttpResponse;
+import akka.http.javadsl.model.Uri;
 
 import java.io.Serializable;
 
@@ -24,6 +25,18 @@ public interface ProxyMessages {
 
         public HttpRequest getHttpRequest() {
             return httpRequest;
+        }
+    }
+
+    class ReadCache implements Serializable {
+        private final Uri uri;
+
+        public ReadCache(Uri uri) {
+            this.uri = uri;
+        }
+
+        public Uri getUri() {
+            return uri;
         }
     }
 }
