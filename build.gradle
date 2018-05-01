@@ -15,7 +15,7 @@ dependencies {
     testCompile 'junit:junit:4.12'
 }
 
-mainClassName = "com.lightbend.akka.http.sample.QuickstartServer"
+mainClassName = "com.shodachi.kokoproxy.KokoProxyServer"
 
 run {
     standardInput = System.in

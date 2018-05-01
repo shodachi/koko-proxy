@@ -51,7 +51,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>1.6.0</version>
                 <configuration>
-                    <mainClass>com.lightbend.akka.http.sample.KokoProxyServer</mainClass>
+                    <mainClass>com.shodachi.kokoproxy.KokoProxyServer</mainClass>
                 </configuration>
             </plugin>
         </plugins>

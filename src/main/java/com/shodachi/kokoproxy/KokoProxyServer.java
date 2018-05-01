@@ -1,4 +1,4 @@
-package com.lightbend.akka.http.sample;
+package com.shodachi.kokoproxy;
 
 import akka.NotUsed;
 import akka.actor.ActorRef;
@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 
 public class KokoProxyServer extends AllDirectives {
 
-    Timeout timeout = new Timeout(Duration.create(30, TimeUnit.SECONDS)); // usually we'd obtain the timeout from the system's configuration
+    private Timeout timeout = new Timeout(Duration.create(30, TimeUnit.SECONDS)); // usually we'd obtain the timeout from the system's configuration
 
     public static void main(String[] args) throws Exception {
         //#server-bootstrapping
@@ -36,6 +36,7 @@ public class KokoProxyServer extends AllDirectives {
         final Http http = Http.get(system);
         final ActorMaterializer materializer = ActorMaterializer.create(system);
         final KokoProxyServer app = new KokoProxyServer();
+
         //#server-bootstrapping
 
         ActorRef directContentRequestActor = system.actorOf(DirectRequestActor.props(), "directRequestActor");
@@ -46,7 +47,7 @@ public class KokoProxyServer extends AllDirectives {
         System.out.println("Server online at http://localhost:3128/");
     }
 
-    public Route createRoute(ActorRef directContentRequestActor, ActorRef requestCacheActor, ActorMaterializer materializer, ActorSystem system) {
+    private Route createRoute(ActorRef directContentRequestActor, ActorRef requestCacheActor, ActorMaterializer materializer, ActorSystem system) {
 
         LoggingAdapter log = Logging.getLogger(system, this);
 
@@ -62,7 +63,15 @@ public class KokoProxyServer extends AllDirectives {
                             {
                                 if (httpResponse.isPresent()) {
                                     log.info("Got cache for you!!");
-                                    return complete(httpResponse.get());
+                                    HttpResponse responseCached = httpResponse.get();
+
+                                    final HttpResponse res = HttpResponse.create().
+                                            withEntity(responseCached.entity()).
+                                            withStatus(responseCached.status()).
+                                            withHeaders(responseCached.getHeaders()).
+                                            addHeader(HttpHeader.parse("X-Cache", "HIT"));
+
+                                    return complete(res);
                                 } else {
                                     return routeWhenCacheMiss(request, directContentRequestActor, requestCacheActor, materializer, system);
                                 }
@@ -88,14 +97,23 @@ public class KokoProxyServer extends AllDirectives {
                         ByteString content = strictEntity.toCompletableFuture().get().getData();
                         ContentType contentType = strictEntity.toCompletableFuture().get().getContentType();
 
-                        final HttpResponse newResponse = HttpResponse.create().withEntity(contentType, content).withStatus(httpResponse.status()).withHeaders(httpResponse.getHeaders());
+                        final HttpResponse resposeToCache = HttpResponse.create().
+                                withEntity(contentType, content).
+                                withStatus(httpResponse.status()).
+                                withHeaders(httpResponse.getHeaders()).
+                                removeHeader("X-Cache");
 
-                        createCache(requestCacheActor, request, newResponse);
+                        createCache(requestCacheActor, request, resposeToCache);
+
+                        final HttpResponse newResponse = HttpResponse.create().
+                                withEntity(contentType, content).
+                                withStatus(httpResponse.status()).
+                                withHeaders(httpResponse.getHeaders()).
+                                removeHeader("X-Cache").
+                                addHeader(HttpHeader.parse("X-Cache", "MISS"));
 
                         return complete(newResponse);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    } catch (ExecutionException e) {
+                    } catch (InterruptedException | ExecutionException e) {
                         e.printStackTrace();
                     }
 
@@ -107,6 +125,4 @@ public class KokoProxyServer extends AllDirectives {
     private void createCache(ActorRef requestCacheActor, HttpRequest request, HttpResponse response) {
         PatternsCS.ask(requestCacheActor, new ProxyMessages.WriteCache(request, response), timeout);
     }
-
-
 }

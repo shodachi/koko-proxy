@@ -1,4 +1,4 @@
-package com.lightbend.akka.http.sample;
+package com.shodachi.kokoproxy;
 
 import akka.actor.AbstractActor;
 import akka.actor.Props;
@@ -15,7 +15,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ProxyCacheActor extends AbstractActor {
-    LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
+    private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
 
     public static class PageCache {
@@ -30,7 +30,7 @@ public class ProxyCacheActor extends AbstractActor {
         }
     }
 
-    private final ConcurrentHashMap<Uri, PageCache> pageCaches = new ConcurrentHashMap();
+    private final ConcurrentHashMap<Uri, PageCache> pageCaches = new ConcurrentHashMap<>();
 
     static Props props() {
         return Props.create(ProxyCacheActor.class);

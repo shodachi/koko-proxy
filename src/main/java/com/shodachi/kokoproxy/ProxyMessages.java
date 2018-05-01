@@ -1,4 +1,4 @@
-package com.lightbend.akka.http.sample;
+package com.shodachi.kokoproxy;
 
 import akka.http.javadsl.model.HttpRequest;
 import akka.http.javadsl.model.HttpResponse;
@@ -13,7 +13,7 @@ public interface ProxyMessages {
         private final HttpResponse httpResponse;
 
 
-        public WriteCache(HttpRequest httpRequest,HttpResponse httpResponse) {
+        public WriteCache(HttpRequest httpRequest, HttpResponse httpResponse) {
             this.httpResponse = httpResponse;
             this.httpRequest = httpRequest;
 

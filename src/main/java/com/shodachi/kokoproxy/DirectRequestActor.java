@@ -1,4 +1,4 @@
-package com.lightbend.akka.http.sample;
+package com.shodachi.kokoproxy;
 
 import akka.actor.AbstractActor;
 import akka.actor.Props;
