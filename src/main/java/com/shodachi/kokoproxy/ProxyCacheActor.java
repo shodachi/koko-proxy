@@ -17,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ProxyCacheActor extends AbstractActor {
     private LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
+    private final Duration cacheToLiveDuration = Duration.ofSeconds(360);
 
     public static class PageCache {
         private Uri uri;
@@ -72,7 +73,7 @@ public class ProxyCacheActor extends AbstractActor {
         Timestamp currentTime = new Timestamp(System.currentTimeMillis());
         Long delta = currentTime.getTime() - pageCache.lastTimeCached.getTime();
 
-        if (delta > Duration.ofSeconds(20).toMillis()) {
+        if (delta > cacheToLiveDuration.toMillis()) {
             log.info("Cache expired!!");
             return true;
         } else {

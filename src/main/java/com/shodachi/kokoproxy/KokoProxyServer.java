@@ -105,7 +105,7 @@ public class KokoProxyServer extends AllDirectives {
                         createCache(requestCacheActor, request, responseToCache);
 
                         final HttpResponse newResponse =
-                                copyHttpResponseLessXCache(httpResponse).
+                                copyHttpResponseLessXCache(responseToCache).
                                         addHeader(HttpHeader.parse("X-Cache", "MISS"));
 
                         return complete(newResponse);
