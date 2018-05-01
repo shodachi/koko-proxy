@@ -11,17 +11,28 @@ import akka.event.Logging;
 import akka.event.LoggingAdapter;
 import akka.http.javadsl.model.HttpRequest;
 import akka.http.javadsl.model.HttpResponse;
-import akka.stream.ActorMaterializer;
-import akka.stream.javadsl.FileIO;
-import akka.stream.javadsl.Framing;
-import akka.stream.javadsl.FramingTruncation;
-import akka.util.ByteString;
+import akka.http.javadsl.model.Uri;
+import com.sun.jmx.snmp.Timestamp;
 
-import java.io.File;
-import java.util.function.Function;
+
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ProxyCacheActor extends AbstractActor {
     LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
+
+    public static class PageCache {
+        private Uri uri;
+        private HttpResponse httpResponse;
+        private Timestamp lastTimeCached;
+
+        public PageCache(Uri uri, HttpResponse httpResponse, Timestamp lastTimeCached) {
+            this.uri = uri;
+            this.httpResponse = httpResponse;
+            this.lastTimeCached = new Timestamp(System.nanoTime());
+        }
+    }
+
+    private final ConcurrentHashMap pageCaches = new ConcurrentHashMap();
 
     static Props props() {
         return Props.create(ProxyCacheActor.class);
@@ -34,20 +45,28 @@ public class ProxyCacheActor extends AbstractActor {
                 .build();
     }
 
-
     private void saveResponseToCache (HttpRequest httpRequest, HttpResponse httpResponse){
-        final int maximumFrameLength = 30000;
-        final Function<ByteString, ByteString> transformEachLine = line -> line /* some transformation here */;
-        final ActorMaterializer materializer = ActorMaterializer.create(getContext().getSystem());
+
+        Timestamp timestamp = new Timestamp();
+        PageCache pageCache = new PageCache(httpRequest.getUri(),httpResponse,timestamp);
+        pageCaches.put(httpRequest.getUri(),pageCache);
+
+
+        log.info(httpRequest.getUri() + " Saved to cache!!!");
+        log.info("We have "+pageCaches.size()+ "cached pages");
+        /*final int maximumFrameLength = 30000;
+        final Function<ByteString, ByteString> transformEachLine = line -> line  some transformation here */;
+        //final ActorMaterializer materializer = ActorMaterializer.create(getContext().getSystem());
 
 
         //Will fix this for different path later
-        String cacheFileName = "/tmp/"+httpRequest.getUri().getHost().toString();
+        /*
+        String cacheFileName = "/tmp/proxy-cache/"+httpRequest.getUri().getHost().toString();
         log.info("Write cache for "+httpRequest.getUri() + " at ("+cacheFileName+")");
 
         httpResponse.entity().getDataBytes()
                 .via(Framing.delimiter(ByteString.fromString("\n"), maximumFrameLength, FramingTruncation.ALLOW))
                 .map(transformEachLine::apply)
-                .runWith(FileIO.toPath(new File(cacheFileName).toPath()), materializer);
+                .runWith(FileIO.toPath(new File(cacheFileName).toPath()), materializer);*/
     }
 }

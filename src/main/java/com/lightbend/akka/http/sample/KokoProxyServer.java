@@ -3,6 +3,8 @@ package com.lightbend.akka.http.sample;
 import akka.NotUsed;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
+import akka.event.Logging;
+import akka.event.LoggingAdapter;
 import akka.http.javadsl.ConnectHttp;
 import akka.http.javadsl.Http;
 import akka.http.javadsl.ServerBinding;
@@ -39,7 +41,7 @@ public class KokoProxyServer extends AllDirectives {
         ActorRef directContentRequestActor = system.actorOf(DirectRequestActor.props(), "directRequestActor");
         ActorRef requestCacheActor = system.actorOf(ProxyCacheActor.props(), "proxyCacheActor");
 
-        final Flow<HttpRequest, HttpResponse, NotUsed> routeFlow = app.createRoute(directContentRequestActor, requestCacheActor,materializer).flow(system, materializer);
+        final Flow<HttpRequest, HttpResponse, NotUsed> routeFlow = app.createRoute(directContentRequestActor, requestCacheActor,materializer,system).flow(system, materializer);
         final CompletionStage<ServerBinding> binding = http.bindAndHandle(routeFlow, ConnectHttp.toHost("localhost", 3128), materializer);
         System.out.println("Server online at http://localhost:3128/");
     }
@@ -48,9 +50,12 @@ public class KokoProxyServer extends AllDirectives {
         PatternsCS.ask(requestCacheActor, new ProxyMessages.WriteCache(request,response), timeout);
     }
 
-    public Route createRoute(ActorRef directContentRequestActor, ActorRef requestCacheActor,ActorMaterializer materializer) {
+    public Route createRoute(ActorRef directContentRequestActor, ActorRef requestCacheActor,ActorMaterializer materializer,ActorSystem system) {
+
+        LoggingAdapter log = Logging.getLogger(system, this);
 
         final Route extractRequest = extractRequest(request -> {
+                    log.info("Trying to access "+request.getUri());
                     CompletionStage<HttpResponse> futureHttpResponse = PatternsCS.ask(directContentRequestActor, request.getUri().toString(), timeout).
                             thenApply(obj -> (HttpResponse) obj);
                     return onSuccess(() -> futureHttpResponse, httpResponse ->
@@ -61,7 +66,12 @@ public class KokoProxyServer extends AllDirectives {
                                 try {
                                     ByteString content = strictEntity.toCompletableFuture().get().getData();
                                     ContentType contentType = strictEntity.toCompletableFuture().get().getContentType();
-                                    return complete(HttpResponse.create().withEntity(contentType,content).withStatus(httpResponse.status()).withHeaders(httpResponse.getHeaders()));
+
+                                    final HttpResponse newResponse = HttpResponse.create().withEntity(contentType,content).withStatus(httpResponse.status()).withHeaders(httpResponse.getHeaders());
+
+                                    createCache(requestCacheActor, request, newResponse);
+
+                                    return complete(newResponse);
                                 } catch (InterruptedException e) {
                                     e.printStackTrace();
                                 } catch (ExecutionException e) {
@@ -79,9 +89,7 @@ public class KokoProxyServer extends AllDirectives {
         );
 
         return get(() -> route(
-                pathSingleSlash(() ->
-                        extractRequest
-                )
+                extractRequest
         ));
     }
 }
